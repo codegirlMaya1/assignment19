@@ -1,0 +1,160 @@
+
+from flask import Flask, jsonify, request
+from flask_marshmallow import Marshmallow
+from marshmallow import fields
+from marshmallow import ValidationError
+import mysql.connector
+from mysql.connector import Error
+
+db_name=" gym_db"
+user="root"
+password="S05071984"
+host="127.0.0.1"
+
+try:
+    def get_db_connection():
+        conn=mysql.connector.connect(
+            database=db_name,
+            user=user,
+            password=password,
+            host=host
+    
+)
+        if conn.is_connected():
+            print("MySQL database is connected successfully")
+        
+   
+except ValueError as e:
+    print(f'Error: {e}')
+
+
+app = Flask(__name__)
+ma=Marshmallow(app)
+
+class MembersSchema(ma.Schema):
+    id = fields.String(required=True)
+    name= fields.String(required =True)
+    age=fields.String(required=True)
+    
+    class Meta:
+        fields = ('id', 'name', 'age')
+    
+member_schema = MembersSchema()
+members_schema = MembersSchema(many=True)
+
+
+@app.route('/')
+def hello_world():
+    return 'Welcome To Gym Management System (Flask)'
+
+#FUNCTION TO GET MEMBERS
+
+@app.route('/members', methods=['GET']) #http://127.0.0.1:5000/members
+def get_members():
+    try:
+        conn=get_db_connection()
+        conn=mysql.connector.connect(
+            database=db_name,
+            user=user,
+            password=password,
+            host=host
+    
+)
+        if conn is None:
+            return jsonify ({"Error: Database connection failed"}),500
+        cursor=conn.cursor(dictionary=True)
+        query="SELECT * FROM members"
+        cursor.execute(query)
+        members=cursor.fetchall()
+        return members_schema.jsonify(members)
+        
+    except Error as e:
+        print(f" Error:{e}")
+        return jsonify ({"Error":" Internal Server Error"}),500
+       
+    finally:
+        print("Database Status: Currently Connected")
+        
+# FUNCTION TO ADD MEMBERS
+
+@app.route('/members', methods=['POST']) #http://127.0.0.1:5000/members
+def add_members():
+    
+    try:
+        member_data=member_schema.load(request.json)
+    except Error as e:
+        print(f"Error{e}")
+        return jsonify (e.message),400
+    
+    try:
+        conn=get_db_connection()
+        conn=mysql.connector.connect(
+            database=db_name,
+            user=user,
+            password=password,
+            host=host
+            
+    
+)
+        if conn is None:
+            return jsonify ({"Error: Database connection failed"}),500
+        
+        cursor=conn.cursor(dictionary=True)
+        new_member=(member_data['id'], member_data['name'], member_data['age'])
+        query=" INSERT INTO members (id, name, age) VALUES ( %s, %s, %s)"
+        cursor.execute(query,new_member)
+        conn.commit()
+        return jsonify({"message":"New member added successfully"}), 201
+        
+    except Error as e:
+        print(f" Error:{e}")
+        return jsonify ({"Error":" Internal Server Error"}),500
+       
+    finally:
+        print("Database Status: Currently Connected")
+        
+        #   FUNCTION to Update Members Information
+        
+@app.route('/members/<int:id>', methods=['PUT']) #http://127.0.0.1:5000/members
+def update_members(id):
+    
+    try:
+        member_data=member_schema.load(request.json)
+    except Error as e:
+        print(f"Error{e}")
+        return jsonify (e.message),400
+    
+    try:
+        conn=get_db_connection()
+        conn=mysql.connector.connect(
+            database=db_name,
+            user=user,
+            password=password,
+            host=host
+            
+    
+)
+        if conn is None:
+            return jsonify ({"Error: Database connection failed"}),500
+        
+        cursor=conn.cursor(dictionary=True)
+        update_members=(member_data["id"], member_data["name"], member_data["age"], id)
+        query="UPDATE members SET id=%s, name=%s, age=%s WHERE id %s"
+        cursor.execute(query, update_members)
+        conn.commit()
+        return jsonify({"message":"Member information updated successfully"}), 201
+    
+        
+    except Error as e:
+        print(f" Error:{e}")
+        return jsonify ({"Error":" Internal Server Error"}),500
+       
+    finally:
+        print("Database Status: Currently Connected")
+        
+
+if __name__ == '__main__':
+
+    # run() method of Flask class runs the application 
+    # on the local development server.
+    app.run()
